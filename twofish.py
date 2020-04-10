@@ -112,3 +112,21 @@ decrypted_data = twofish.decrypt(encrypted_data)
 
 print(encrypted_data)
 print(decrypted_data)
+
+# Генерируем вектора
+# import random
+# inf = open('vectors.txt', 'w')
+# for i in range(100):
+#     __testkey = hex(random.getrandbits(128)).replace('0x', '')
+#     __testdat = hex(random.getrandbits(128)).replace('0x', '')
+#
+#     twofish = Twofish(init_vectors, __testkey)
+#     encrypted_data = twofish.encrypt(__testdat)
+#     decrypted_data = twofish.decrypt(encrypted_data)
+#
+#     inf.write('Key: ' + str(__testkey) + '\n')
+#     inf.write('Data: ' + str(__testdat) + '\n')
+#     inf.write('Encrypted: ' + str(encrypted_data) + '\n')
+#     inf.write('Decrypted: ' + str(decrypted_data) + '\n')
+#     inf.write('\n')
+
