@@ -5,17 +5,25 @@ from Twofish.helpers import TWI, set_key, decrypt, encrypt
 
 block_size = 16
 key_size = 32
+init_vectors = [
+    3812828313,
+    3486531825,
+    2996344758,
+    3660737698,
+]
 
 
 class Twofish:
 
-    def __init__(self, default_vectors, key=None):
+    def __init__(self, default_vectors, key=None, mode='ECB'):
 
         self.context = TWI()
 
         self.default_vectors = default_vectors
 
         self.init_vectors = default_vectors
+
+        self.mode = mode
 
         if key is not None:
             key = binascii.unhexlify(key)
@@ -41,7 +49,7 @@ class Twofish:
         set_key(self.context, key_word32, key_len)
 
     def mod_bc_func(self, a, b, c, d):
-
+        """Функция для режима сцепления блоков"""
         a = a ^ self.init_vectors[0]
         b = b ^ self.init_vectors[1]
         c = c ^ self.init_vectors[2]
@@ -66,9 +74,10 @@ class Twofish:
             a, b, c, d = struct.unpack("<4L", block[:16])
             temp = [a, b, c, d]
             decrypt(self.context, temp)
-            temp = self.mod_bc_func(*temp)
+            temp = self.mod_bc_func(*temp) if self.mode == 'BC' else temp
             plaintext += struct.pack("<4L", *temp)
-            self.init_vectors = self.mod_bc_func(a, b, c, d)
+            if self.mode == 'BC':
+                self.init_vectors = self.mod_bc_func(a, b, c, d)
             block = block[16:]
 
         return plaintext.hex()
@@ -84,34 +93,78 @@ class Twofish:
 
         while block:
             a, b, c, d = struct.unpack("<4L", block[0:16])
-            temp = self.mod_bc_func(a, b, c, d)
+            temp = self.mod_bc_func(a, b, c, d) if self.mode == 'BC' else [a, b, c, d]
             encrypt(self.context, temp)
-            self.init_vectors = self.mod_bc_func(*temp)
+            if self.mode == 'BC':
+                self.init_vectors = self.mod_bc_func(*temp)
             ciphertext += struct.pack("<4L", *temp)
             block = block[16:]
 
-        self.set_default_vectors()
+        if self.mode == 'BC':
+            self.set_default_vectors()
 
         return ciphertext.hex()
 
 
-init_vectors = [
-    3812828313,
-    3486531825,
-    2996344758,
-    3660737698,
-]
+def twofish_all_test(filename, mode):
+    """
+    Функция для проверки всех тестов
+    :param filename: из какого файла читаем
+    :param mode: encrypt/decrypt
+    :return: Количество пройденных тестов и общее количество
+    """
+    inf = open(filename, 'r')
+    key = ''
+    c_text = ''
+    p_text = ''
+    all_tests = 0
+    passed_tests = 0
+    for line in inf.readlines():
+        if line.startswith('KEY='):
+            key = line.replace('KEY=', '').replace('\n', '')
+        if line.startswith('CT='):
+            c_text = line.replace('CT=', '').replace('\n', '')
+        if line.startswith('PT='):
+            p_text = line.replace('PT=', '').replace('\n', '')
 
-__testkey = '4424C63AD029CE873895B02E0425D372'
-__testdat = '992443E3EC40D0CF909598B29B6C32DA'
+        if key and c_text and p_text:
+            all_tests += 1
+            twofish = Twofish(init_vectors, key, mode='ECB')
+            if mode == 'encrypt':
+                encrypted_data = twofish.encrypt(p_text)
+                if encrypted_data == c_text:
+                    passed_tests += 1
+            elif mode == 'decrypt':
+                decrypted_data = twofish.decrypt(c_text)
+                if decrypted_data == p_text:
+                    passed_tests += 1
 
-twofish = Twofish(init_vectors, __testkey)
+            key = ''
+            c_text = ''
+            p_text = ''
 
-encrypted_data = twofish.encrypt(__testdat)
-decrypted_data = twofish.decrypt(encrypted_data)
+    return all_tests, passed_tests
 
-print(encrypted_data)
-print(decrypted_data)
+
+print('Encryption tests:')
+all_tests, passed_tests = twofish_all_test('encrypt_test.txt', 'encrypt')
+print('All tests: {}, passed tests: {}'.format(all_tests, passed_tests))
+
+print('Decryption tests:')
+all_tests, passed_tests = twofish_all_test('decrypt_test.txt', 'decrypt')
+print('All tests: {}, passed tests: {}'.format(all_tests, passed_tests))
+
+# Режим сцепления блоков
+# __testkey = '282BE7E4FA1FBDC29661286F1F310B7E'
+# __testdat = '282BE7E4FA1FBDC29661286F1F310B7E'
+
+# twofish = Twofish(init_vectors, __testkey, mode='BC')
+#
+# encrypted_data = twofish.encrypt(__testdat)
+# decrypted_data = twofish.decrypt(encrypted_data)
+#
+# print(encrypted_data)
+# print(decrypted_data)
 
 # Генерируем вектора
 # import random
@@ -129,4 +182,3 @@ print(decrypted_data)
 #     inf.write('Encrypted: ' + str(encrypted_data) + '\n')
 #     inf.write('Decrypted: ' + str(decrypted_data) + '\n')
 #     inf.write('\n')
-
